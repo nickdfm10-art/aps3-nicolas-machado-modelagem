@@ -1,0 +1,28 @@
+C4Container
+    title Smart Campus UniSenai - Visão de Contêineres (C4 Nível 2)
+
+    Person(usuario, "Usuário", "Aluno, Professor, Técnico ou Visitante")
+    Person(adm, "Gestão do Campus", "ADMs que analisam consumo e alertas")
+    System_Ext(grade, "Grade Horária Acadêmica", "Fonte de verdade das aulas programadas")
+    System_Ext(iot, "Rede IoT de Atuadores", "Tomadas inteligentes, iluminação e ar-condicionado")
+
+    System_Boundary(sc, "Smart Campus UniSenai") {
+        Container(terminal, "Terminal Biométrico", "Raspberry Pi 4, Python 3.12, SDK biométrico", "Captura biometria facial/digital e controla a fechadura")
+        Container(api, "API de Acesso", "Python 3.12, FastAPI", "ControladorAcesso, ServicoIdentidade, ServicoPermissao e OrquestradorAcessoEnergia")
+        Container(energia, "Serviço de Energia", "Python 3.12, worker assíncrono", "Aplica Perfil Energético e Política de Agendamento; comanda atuadores")
+        ContainerQueue(broker, "Broker de Eventos", "RabbitMQ 3.13", "Exchange de eventos de ocupação, confirmação de energia e alertas")
+        ContainerDb(db, "Banco Smart Campus", "PostgreSQL 16", "Usuários, permissões, ambientes, acessos imutáveis e sessões de uso")
+        Container(painel, "Painel de Gestão", "React 18, TypeScript", "Visão de ocupação, consumo e alertas de desperdício")
+    }
+
+    Rel(usuario, terminal, "Apresenta biometria", "Facial / digital")
+    Rel(terminal, api, "solicitarAcesso()", "HTTPS/JSON (REST), mTLS")
+    Rel(api, db, "Lê permissões e grava acessos", "SQL / psycopg 3")
+    Rel(api, broker, "Publica EventoOcupacao e AlertaAcesso", "AMQP 0-9-1")
+    Rel(broker, energia, "Entrega EventoOcupacao", "AMQP 0-9-1")
+    Rel(energia, broker, "Publica ConfirmacaoEnergia", "AMQP 0-9-1")
+    Rel(broker, api, "Entrega ConfirmacaoEnergia", "AMQP 0-9-1")
+    Rel(energia, iot, "energizar()", "MQTT 3.1.1 sobre TLS")
+    Rel(energia, grade, "Consulta aulas programadas", "HTTPS/JSON (REST)")
+    Rel(adm, painel, "Consulta ocupação e alertas", "HTTPS")
+    Rel(painel, api, "Consulta dados e alertas", "HTTPS/JSON (REST)")
