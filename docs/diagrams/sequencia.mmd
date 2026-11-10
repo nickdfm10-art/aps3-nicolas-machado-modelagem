@@ -1,0 +1,64 @@
+sequenceDiagram
+    autonumber
+    actor U as Usuário
+    box rgb(238,242,255) Borda do Laboratório
+        participant L as TerminalBiometrico
+    end
+    box rgb(236,248,238) API de Acesso (FastAPI)
+        participant C as ControladorAcesso
+        participant I as ServicoIdentidade
+        participant P as ServicoPermissao
+        participant O as OrquestradorAcessoEnergia
+        participant R as RepositorioSmartCampus
+    end
+    participant B as BrokerEventos
+    box rgb(255,246,230) Serviço de Energia
+        participant E as ServicoEnergia
+    end
+    participant A as AtuadorAmbiente
+
+    U->>L: apresentarBiometria()
+    L->>C: solicitarAcesso(SolicitacaoAcessoDTO)
+    C->>I: validarCredencial(CredencialDTO)
+    I-->>C: IdentidadeDTO
+
+    alt identidadeConfirmada == false
+        C-)B: publicar(AlertaAcessoDTO)
+        C-->>L: DecisaoAcessoDTO (NEGADO)
+    else identidadeConfirmada == true
+        C->>P: verificarPermissao(ConsultaPermissaoDTO)
+        P-->>C: PermissaoDTO
+        alt permissaoVigente == false
+            C-)B: publicar(AlertaAcessoDTO)
+            C-->>L: DecisaoAcessoDTO (NEGADO)
+        else permissaoVigente == true
+            C->>O: registrarEntrada(EntradaDTO)
+            O->>R: obterAmbiente(ambienteId)
+            R-->>O: AmbienteDTO
+            O->>R: persistirAcesso(AcessoDTO)
+            R-->>O: AcessoDTO (imutável, com timestamp)
+            O-->>C: SessaoUsoDTO
+            C-->>L: DecisaoAcessoDTO (CONCEDIDO)
+            L->>L: liberarFechadura()
+
+            Note over O,E: A partir daqui o processamento é assíncrono e não bloqueia a porta
+            opt ambiente.status in (VAZIO, PRECONDICIONADO)
+                O-)B: publicar(EventoOcupacaoDTO)
+                B-)E: aoReceberEventoOcupacao(EventoOcupacaoDTO)
+                par Iluminação
+                    E->>A: energizar(ComandoEnergiaDTO)
+                    A-->>E: ConfirmacaoDTO
+                and Climatização
+                    E->>A: energizar(ComandoEnergiaDTO)
+                    A-->>E: ConfirmacaoDTO
+                and Bancadas
+                    E->>A: energizar(ComandoEnergiaDTO)
+                    A-->>E: ConfirmacaoDTO
+                end
+                E-)B: publicar(ConfirmacaoEnergiaDTO)
+                B-)O: aoReceberConfirmacaoEnergia(ConfirmacaoEnergiaDTO)
+                O->>R: atualizarStatusAmbiente(AtualizacaoStatusDTO)
+                R-->>O: AmbienteDTO (status = OCUPADO)
+            end
+        end
+    end
