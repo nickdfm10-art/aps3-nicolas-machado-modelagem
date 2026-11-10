@@ -1,0 +1,62 @@
+flowchart TB
+    classDef bar fill:#000,stroke:#000,stroke-width:8px,color:#000
+    classDef decisao fill:#fff7d6,stroke:#b58900
+    classDef fim fill:#fff,stroke:#000,stroke-width:3px
+
+    subgraph RU["Raia 1 - Usuário"]
+        ini(("●"))
+        a1["Aproximar-se da porta e<br/>apresentar biometria"]
+    end
+
+    subgraph RT["Raia 2 - Terminal Biométrico (borda)"]
+        a2["Capturar template e enviar<br/>solicitarAcesso(SolicitacaoAcessoDTO)"]
+        a9["liberarFechadura()"]
+        a10["Manter porta travada"]
+    end
+
+    subgraph RB["Raia 3 - Sistema Back-End"]
+        a3["validarCredencial(CredencialDTO)"]
+        d1{"Identidade<br/>confirmada?"}
+        a4["verificarPermissao(ConsultaPermissaoDTO)"]
+        d2{"Permissão<br/>vigente?"}
+        a5["publicar(AlertaAcessoDTO)<br/>e registrar tentativa negada"]
+        a6["registrarEntrada(EntradaDTO)<br/>persistirAcesso(AcessoDTO)"]
+        d3{"Status atual<br/>do Ambiente?"}
+        a7["Associar usuário à<br/>Sessão de Uso em curso"]
+        a8["Iniciar Sessão de Uso e<br/>publicar(EventoOcupacaoDTO)"]
+        fork1[" "]
+        join1[" "]
+        a14["atualizarStatusAmbiente<br/>status = OCUPADO / Modo Operacional"]
+        fimN(("◉"))
+        fimC(("◉"))
+        fimA(("◉"))
+    end
+
+    subgraph RH["Raia 4 - Serviço de Energia e Atuadores (hardware)"]
+        a11["energizar(): Iluminação"]
+        a12["energizar(): Climatização"]
+        a13["energizar(): Bancadas"]
+    end
+
+    ini --> a1 --> a2 --> a3 --> d1
+    d1 -->|"[identidadeConfirmada == false]"| a5
+    d1 -->|"[identidadeConfirmada == true]"| a4
+    a4 --> d2
+    d2 -->|"[permissaoVigente == false]"| a5
+    d2 -->|"[permissaoVigente == true]"| a6
+    a5 --> a10 --> fimN
+    a6 --> a9 --> d3
+    d3 -->|"[status == OCUPADO]"| a7 --> fimA
+    d3 -->|"[status == VAZIO ou PRECONDICIONADO]"| a8
+    a8 --> fork1
+    fork1 --> a11
+    fork1 --> a12
+    fork1 --> a13
+    a11 --> join1
+    a12 --> join1
+    a13 --> join1
+    join1 --> a14 --> fimC
+
+    class fork1,join1 bar
+    class d1,d2,d3 decisao
+    class fimN,fimC,fimA fim
