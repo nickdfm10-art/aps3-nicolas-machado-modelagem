@@ -1,0 +1,38 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> ModoEconomico : cadastrarAmbiente()
+
+    ModoEconomico --> PreCondicionado : AulaProgramadaProxima [aulaAgendada == true && ocupacao == 0] / preCondicionarClimatizacao()
+    ModoEconomico --> Ocupado : EntradaValidada [identidadeConfirmada && permissaoVigente] / iniciarSessao()
+    ModoEconomico --> Desativado : Descomissionar [ocupacao == 0] / revogarPermissoes()
+
+    PreCondicionado --> Ocupado : EntradaValidada [identidadeConfirmada && permissaoVigente] / iniciarSessao()
+    PreCondicionado --> ModoEconomico : AulaNaoOcorreu [ocupacao == 0 && tempoEsgotado] / desligarClimatizacao()
+
+    state Ocupado {
+        [*] --> EnergizandoDispositivos
+        EnergizandoDispositivos --> ModoOperacional : ConfirmacoesRecebidas [todosAtuadoresOk] / marcarSessaoAtiva()
+        ModoOperacional --> ModoOperacional : SaidaRegistrada [presentes > 1] / registrarSaida()
+    }
+
+    Ocupado --> ToleranciaClimatizacao : SaidaRegistrada [presentes == 1] / encerrarSessao(), desligarIluminacao()
+
+    ToleranciaClimatizacao --> Ocupado : EntradaValidada [identidadeConfirmada && permissaoVigente] / iniciarSessao()
+    ToleranciaClimatizacao --> ModoEconomico : after(15min) [ocupacao == 0] / desligarClimatizacao()
+
+    Desativado --> [*]
+
+    EnergizandoDispositivos : EnergizandoDispositivos
+    EnergizandoDispositivos : entry / publicar(EventoOcupacaoDTO)
+    EnergizandoDispositivos : do / energizar(iluminacao, climatizacao, bancadas)
+    ModoOperacional : ModoOperacional
+    ModoOperacional : entry / ativarModoOperacional()
+    ModoOperacional : exit / registrarFimDeUso()
+    ModoOperacional : EntradaValidada [permissaoVigente] / associarASessao()
+    ToleranciaClimatizacao : ToleranciaClimatizacao
+    ToleranciaClimatizacao : entry / iniciarTemporizador(15min)
+    ToleranciaClimatizacao : do / monitorarPresenca()
+    ToleranciaClimatizacao : exit / cancelarTemporizador()
+    ModoEconomico : ModoEconomico
+    ModoEconomico : entry / aplicarPerfilEconomico()
